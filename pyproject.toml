@@ -1,0 +1,10 @@
+[project]
+name = "my-ehrql-project"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "opensafely-ehrql @ git+https://github.com/opensafely-core/ehrql.git@v1.51.9",
+]
+
+[tool.uv]
+package = false
