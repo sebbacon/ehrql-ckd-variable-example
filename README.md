@@ -1,6 +1,8 @@
 # CKD Stage 3+ Phenotype (PH42)
 
-Implementation of the [Kuan et al. CALIBER CKD phenotype (PH42)](https://phenotypes.healthdatagateway.org/phenotypes/PH42/version/2933/detail/) in ehrQL for OpenSAFELY TPP backends.
+Implementation of the [Kuan et al. CALIBER CKD phenotype (PH42)](https://phenotypes.healthdatagateway.org/phenotypes/PH42/version/2933/detail/) in ehrQL for OpenSAFELY TPP backends
+
+**🚨🚨🚨 !!!IMPORTANT: THIS IS AN EXAMPLE ONLY AND HAS NOT BEEN CLINICALLY VALIDATED!!!! DO NOT USE IN REAL RESEARCH!!!! 🚨🚨🚨 **
 
 ## Brief
 
