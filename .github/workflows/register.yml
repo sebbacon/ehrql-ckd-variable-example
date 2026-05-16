@@ -1,0 +1,115 @@
+name: Register phenotype
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Capture commit SHA
+        run: echo "COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build registry entry
+        env:
+          SOURCE_REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PYEOF'
+          import tomllib, json, os, datetime
+
+          with open("phenotype.toml", "rb") as f:
+              manifest = tomllib.load(f)
+
+          ph = manifest["phenotype"]
+          readme = open(ph["readme"]).read()
+          sha = os.environ["COMMIT_SHA"]
+          source_repo = os.environ["SOURCE_REPO"]
+
+          entry = {
+              "id": ph["id"],
+              "name": ph["name"],
+              "description": ph["description"],
+              "repo": source_repo,
+              "sha": sha,
+              "module_path": ph["module_path"],
+              "registered_at": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "readme_md": readme,
+              "deprecated": False,
+              "manifest": {
+                  "outputs": ph.get("outputs", []),
+                  "dummy_tables": ph.get("dummy_tables", []),
+                  "codelists": ph.get("codelists", []),
+              },
+          }
+
+          with open("/tmp/entry.json", "w") as f:
+              json.dump(entry, f, indent=2)
+          print(f"Built entry for {entry['id']} @ {sha[:8]}")
+          PYEOF
+
+      - name: Read registry repo from manifest
+        run: |
+          REGISTRY_REPO=$(python3 -c "import tomllib; m=tomllib.load(open('phenotype.toml','rb')); print(m['phenotype']['registry_repo'])")
+          echo "REGISTRY_REPO=$REGISTRY_REPO" >> "$GITHUB_ENV"
+
+      - name: Clone registry and open PR
+        env:
+          GH_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          SOURCE_REPO: ${{ github.repository }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          BRANCH="register-$(echo "$SOURCE_REPO" | tr '/' '-')-${COMMIT_SHA:0:8}"
+
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${REGISTRY_REPO}.git" /tmp/registry
+          cd /tmp/registry
+
+          git checkout -b "$BRANCH"
+
+          python3 - <<'PYEOF'
+          import json
+
+          with open("docs/registry.json") as f:
+              registry = json.load(f)
+
+          new_entry = json.load(open("/tmp/entry.json"))
+          phenotype_id = new_entry["id"]
+
+          phenotypes = registry.get("phenotypes", [])
+          updated = False
+          for i, p in enumerate(phenotypes):
+              if p["id"] == phenotype_id:
+                  phenotypes[i] = new_entry
+                  updated = True
+                  break
+          if not updated:
+              phenotypes.append(new_entry)
+
+          registry["phenotypes"] = phenotypes
+          with open("docs/registry.json", "w") as f:
+              json.dump(registry, f, indent=2)
+          action = "Updated" if updated else "Added"
+          print(f"{action} {phenotype_id}.")
+          PYEOF
+
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add docs/registry.json
+          git commit -m "Register ${SOURCE_REPO} @ ${COMMIT_SHA:0:8}"
+
+          git push origin "$BRANCH"
+          gh pr create \
+            --repo "$REGISTRY_REPO" \
+            --head "$BRANCH" \
+            --title "Register ${SOURCE_REPO} @ ${COMMIT_SHA:0:8}" \
+            --body "Automated registration from ${SOURCE_REPO} on tag ${TAG_NAME}."

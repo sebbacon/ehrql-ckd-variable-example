@@ -1,0 +1,93 @@
+[phenotype]
+id            = "ckd-ph42"
+name          = "CKD Stage 3+ (PH42)"
+description   = "Identifies patients with CKD Stage 3 or above. A patient qualifies under a strategy if (1) their most recent qualifying measurement before study_end_date has eGFR ≤60 ml/min/1.73m², and (2) at least one qualifying measurement ≥90 days before that also has eGFR ≤60, confirming chronic rather than acute impairment. Four strategies are provided so researchers can choose the one appropriate for their study period and sensitivity requirements."
+module_path   = "analysis/ckd_phenotype.py"
+readme        = "README.md"
+registry_repo = "sebbacon/phenotype-registry"
+source        = "https://phenotypes.healthdatagateway.org/phenotypes/PH42/version/2933/detail/"
+backend       = "tpp"
+
+[[phenotype.outputs]]
+name        = "ckd_by_ckd_epi_2021"
+type        = "bool"
+nullable    = false
+description = "True if two creatinine-derived eGFR readings ≤60 ml/min/1.73m² exist ≥90 days apart, computed via 2021 race-free CKD-EPI throughout. Always False for patients with sex recorded other than male/female (formula is sex-specific)."
+
+[[phenotype.outputs]]
+name        = "ckd_by_mdrd"
+type        = "bool"
+nullable    = false
+description = "True if two creatinine-derived eGFR readings ≤60 ml/min/1.73m² exist ≥90 days apart, computed via 4-variable IDMS-standardised MDRD throughout. Always False for patients with sex recorded other than male/female. Tends to classify more patients as CKD Stage 3+ than CKD-EPI, particularly near the threshold."
+
+[[phenotype.outputs]]
+name        = "ckd_by_era_appropriate"
+type        = "bool"
+nullable    = false
+description = "True if qualifying CKD criteria are met using MDRD for measurements before 2014-01-01 and CKD-EPI 2021 from 2014-01-01 onward, matching the formula switch recommended by NICE CG182. Always False for patients with sex recorded other than male/female. Closest to the original PH42 intent and to what clinicians saw at the time of each measurement."
+
+[[phenotype.outputs]]
+name        = "ckd_by_recorded_egfr"
+type        = "bool"
+nullable    = false
+description = "True if two eGFR values ≤60 ml/min/1.73m² exist ≥90 days apart, taken directly from values recorded in the EHR (no formula applied). Reflects what the clinician actually saw. Includes patients of any recorded sex. The specific formula used is determined by the clinical system at the time and cannot be audited retrospectively."
+
+[[phenotype.outputs]]
+name        = "any_strategy"
+type        = "bool"
+nullable    = false
+description = "True if any of the four strategies identifies CKD Stage 3+. Use this to maximise case ascertainment or as a starting point for sensitivity analyses comparing strategies."
+
+[[phenotype.outputs]]
+name        = "index_creatinine_date"
+type        = "date"
+nullable    = true
+description = "Date of the most recent qualifying creatinine measurement under the era-appropriate strategy (i.e. the later of the two confirming readings). Null when ckd_by_era_appropriate is False."
+
+[[phenotype.outputs]]
+name        = "index_creatinine_umol"
+type        = "float"
+nullable    = true
+description = "Raw creatinine value at the era-appropriate index measurement, in µmol/L as stored in the EHR. Null when ckd_by_era_appropriate is False. Note: this is the raw creatinine concentration, not the derived eGFR."
+
+[[phenotype.outputs]]
+name        = "recorded_egfr_index_date"
+type        = "date"
+nullable    = true
+description = "Date of the most recent qualifying recorded eGFR measurement (the later of the two confirming readings). Null when ckd_by_recorded_egfr is False."
+
+[[phenotype.outputs]]
+name        = "recorded_egfr_index_value"
+type        = "float"
+nullable    = true
+description = "Recorded eGFR value at the index measurement in ml/min/1.73m², as stored in the EHR. Null when ckd_by_recorded_egfr is False."
+
+[[phenotype.dummy_tables]]
+path        = "dummy-tables/patients.csv"
+description = "5,000 patients with date_of_birth and sex. ~6% have CKD Stage 3+ (~300 patients) split across four profiles to exercise all four strategies."
+
+[[phenotype.dummy_tables]]
+path        = "dummy-tables/clinical_events.csv"
+description = "Clinical events including creatinine and eGFR measurements across the full history back to 2005. Creatinine values are back-computed from target eGFRs using the inverse CKD-EPI formula with ±8% biological noise."
+
+[[phenotype.dummy_tables]]
+path        = "dummy-tables/medications.csv"
+description = "Stub file. No medications are used by this phenotype; the file exists to satisfy ehrQL's expectation that all standard tables are present."
+
+[[phenotype.dummy_tables]]
+path        = "dummy-tables/practice_registrations.csv"
+description = "Practice registration periods. Used by dataset_definition.py to filter to patients registered on the study end date."
+
+[[phenotype.codelists]]
+path       = "codelists/ukrr-creatinine-tests-level.csv"
+name       = "UKRR Creatinine Tests (Level)"
+source_url = "https://www.opencodelists.org/codelist/ukrr/creatinine-tests-level/3ee9db71/"
+confidence = "high"
+notes      = "5 SNOMED codes confirmed to carry attached numeric values in TPP. Covers serum and plasma creatinine variants."
+
+[[phenotype.codelists]]
+path       = "codelists/ukrr-egfr-tests-level.csv"
+name       = "UKRR eGFR Tests (Level)"
+source_url = "https://www.opencodelists.org/codelist/ukrr/egfr-tests-level/5293ceba/"
+confidence = "high"
+notes      = "SNOMED codes confirmed to carry attached numeric values in TPP. Covers CKD-EPI creatinine, CKD-EPI cystatin C, MDRD, and generic GFR codes."
